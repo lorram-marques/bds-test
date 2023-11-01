@@ -24,5 +24,4 @@ public class UserController {
 		Page<UserDTO> page = service.findAllPaged(pageable);
 		return ResponseEntity.ok().body(page);
 	}
-	
 }

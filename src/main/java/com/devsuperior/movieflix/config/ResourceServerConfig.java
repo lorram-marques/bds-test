@@ -29,12 +29,10 @@ public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
 	@Autowired
 	private JwtTokenStore tokenStore;
 	
-	private static final String[] PUBLIC = { "/oauth/token" , "/h2-console/**" };
-	
-	private static final String[] OPERATOR_OR_ADMIN = { "/products/**", "/categories/**" };
-	
-	private static final String[] ADMIN = { "/users/**" };
-	
+	private static final String[] PUBLIC = { "/oauth/token", "/h2-console/**" };
+						
+	private static final String[] MEMBER_POST = { "/reviews/**"};
+			
 	@Override
 	public void configure(ResourceServerSecurityConfigurer resources) throws Exception {
 		resources.tokenStore(tokenStore);
@@ -44,39 +42,36 @@ public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
 	public void configure(HttpSecurity http) throws Exception {
 		
 		//h2
-		if (Arrays.asList(env.getActiveProfiles()).contains("test")) {
-            http.headers(headers -> headers.frameOptions().disable());
+		if(Arrays.asList(env.getActiveProfiles()).contains("test")) {
+			http.headers().frameOptions().disable();
 		}
+		
+		http.authorizeRequests()
+		.antMatchers(PUBLIC).permitAll()
+		.antMatchers(HttpMethod.POST , MEMBER_POST).hasRole("MEMBER")
+		.anyRequest().authenticated();
+		
+		http.cors().configurationSource(corsConfigurationSource());
+	}
+	
+	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration corsConfig = new CorsConfiguration();
+		corsConfig.setAllowedOrigins(Arrays.asList("*"));
+		corsConfig.setAllowedMethods(Arrays.asList("POST", "GET", "PUT", "DELETE", "PATCH"));
+		corsConfig.setAllowCredentials(true);
+		corsConfig.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
 
-        http.authorizeRequests(requests -> requests
-                .antMatchers(PUBLIC).permitAll()
-                .antMatchers(HttpMethod.GET, OPERATOR_OR_ADMIN).permitAll()
-                .antMatchers(OPERATOR_OR_ADMIN).hasAnyRole("OPERATOR", "ADMIN")
-                .antMatchers(ADMIN).hasRole("ADMIN")
-                .anyRequest().authenticated());
-
-        http.cors(cors -> cors.configurationSource(corsConfigurationSource()));
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", corsConfig);
+		return source;
 	}
 
-    @Bean
-    CorsConfigurationSource corsConfigurationSource() {
-	    CorsConfiguration corsConfig = new CorsConfiguration();
-	    corsConfig.setAllowedOriginPatterns(Arrays.asList("*"));
-	    corsConfig.setAllowedMethods(Arrays.asList("POST", "GET", "PUT", "DELETE", "PATCH"));
-	    corsConfig.setAllowCredentials(true);
-	    corsConfig.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
-	 
-	    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-	    source.registerCorsConfiguration("/**", corsConfig);
-	    return source;
-	}
-
-    @Bean
-    FilterRegistrationBean<CorsFilter> corsFilter() {
-	    FilterRegistrationBean<CorsFilter> bean
-	            = new FilterRegistrationBean<>(new CorsFilter(corsConfigurationSource()));
-	    bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
-	    return bean;
-	}
-
+	@Bean
+	public FilterRegistrationBean<CorsFilter> corsFilter() {
+		FilterRegistrationBean<CorsFilter> bean 
+			= new FilterRegistrationBean<>(new CorsFilter(corsConfigurationSource()));
+		bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+		return bean;
+	}	
 }
